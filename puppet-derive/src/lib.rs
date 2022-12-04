@@ -20,6 +20,31 @@ macro_rules! bail {
 }
 
 #[proc_macro_attribute]
+/// Create an actor for the given struct Impl.
+///
+/// This allows you to mark methods as message handlers with the `#[puppet]` attribute.
+/// Once marked, the first parameter after one of `&self` or `&mut self` will be the message to
+/// receive.
+///
+/// Once the actor has been derived, you can spawn it with the `spawn_actor`
+/// or `spawn_actor_with_queue_size(n)` method. By default the queue size is `100` messages.
+///
+/// ```ignore
+/// use puppet::puppet_actor;
+///
+/// pub struct MyActor;
+///
+/// #[puppet_actor]
+/// impl MyActor {
+///     #[puppet]
+///     async fn on_say_hello(&self, msg: SayHello) -> String {
+///         format!("Hello, {}!", msg.name)
+///     }
+/// }
+///
+/// let actor = MyActor {};
+/// let mailbox = actor.spawn_actor().await;
+/// ```
 pub fn puppet_actor(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let info = parse_macro_input!(item as ItemImpl);
     generate(info)
