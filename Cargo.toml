@@ -11,7 +11,7 @@ flume = "0.10.14"
 
 tokio = { version = "1", default-features = false, features = ["rt"] }
 
-puppet-derive = { path = "puppet-derive" }
+puppet-derive = { path = "puppet-derive", version = "0.1.0" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
@@ -19,5 +19,4 @@ tokio = { version = "1", features = ["full"] }
 [workspace]
 members = [
     "puppet-derive",
-    "actor-test"
 ]

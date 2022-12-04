@@ -9,8 +9,8 @@ use syn::punctuated::Punctuated;
 use syn::token::SelfValue;
 use syn::{
     parse_macro_input, Error, FnArg, GenericArgument, GenericParam, Generics, ImplItem,
-    ImplItemMethod, ItemImpl, Lifetime, Pat, PathArguments, PathSegment, ReturnType, Type,
-    TypeParam, TypePath, WhereClause, WherePredicate,
+    ImplItemMethod, ItemImpl, Lifetime, Pat, Path, PathArguments, PathSegment, PredicateType,
+    ReturnType, Type, TypeParam, TypePath, WhereClause, WherePredicate,
 };
 
 macro_rules! bail {
@@ -33,8 +33,11 @@ fn generate(mut info: ItemImpl) -> TokenStream {
             .into_compile_error()
             .into();
     };
-    let actor_generics = info.generics.clone();
-    let actor_where = info.generics.make_where_clause().clone();
+    let mut actor_generics = info.generics.clone();
+    let mut actor_where = info.generics.make_where_clause().clone();
+    if let Err(e) = remove_bounds_from_generics(&mut actor_generics, &mut actor_where) {
+        return Error::new_spanned(info, e).into_compile_error().into();
+    }
 
     let mut message_handlers = Vec::new();
     for tokens in mem::take(&mut info.items) {
@@ -55,7 +58,7 @@ fn generate(mut info: ItemImpl) -> TokenStream {
         }
     }
 
-    let mut generic_builder = create_generic_builder(&actor_generics);
+    let mut generic_builder = create_generic_builder(&actor_generics, &actor_where);
     let mut message_callbacks = Vec::new();
     for handler in message_handlers {
         if !is_ref_self(&handler) {
@@ -139,7 +142,11 @@ fn generate(mut info: ItemImpl) -> TokenStream {
 
         impl #actor_generics #actor_name #actor_generics #actor_where {
             pub async fn spawn_actor(mut self) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(100);
+                self.spawn_actor_with_queue_size(100).await
+            }
+
+            pub async fn spawn_actor_with_queue_size(mut self, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+                let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
 
                 puppet::__private::tokio::spawn(async move {
                     while let Ok(op) = rx.recv_async().await {
@@ -157,12 +164,56 @@ fn generate(mut info: ItemImpl) -> TokenStream {
     tokens.into()
 }
 
+fn remove_bounds_from_generics(
+    generics: &mut Generics,
+    where_clause: &mut WhereClause,
+) -> Result<(), String> {
+    for param in generics.params.iter_mut() {
+        match param {
+            GenericParam::Type(ty) => {
+                let mut segments = Punctuated::new();
+                segments.push(PathSegment {
+                    ident: ty.ident.clone(),
+                    arguments: PathArguments::None,
+                });
+
+                let mut bounds = Punctuated::new();
+                for bound in mem::take(&mut ty.bounds) {
+                    bounds.push(bound);
+                }
+
+                let predicate = WherePredicate::Type(PredicateType {
+                    lifetimes: None,
+                    bounded_ty: Type::Path(TypePath {
+                        qself: None,
+                        path: Path {
+                            leading_colon: None,
+                            segments,
+                        },
+                    }),
+                    colon_token: Default::default(),
+                    bounds,
+                });
+                where_clause.predicates.push(predicate);
+            }
+            GenericParam::Lifetime(_) => {
+                bail!("Puppet actors cannot support lifetime generics.");
+            }
+            GenericParam::Const(_) => {
+                bail!("Puppet actors cannot support const generics.");
+            }
+        }
+    }
+    Ok(())
+}
+
 struct EnumFrom {
     parent: Ident,
     name: Ident,
     message: Type,
     generics: GenericBuilder,
 }
+
 impl ToTokens for EnumFrom {
     fn to_tokens(&self, tokens: &mut proc_macro2::TokenStream) {
         let parent = self.parent.clone();
@@ -353,12 +404,12 @@ fn check_lifetime_static(lifetime: Option<&Lifetime>) -> Result<(), String> {
     Ok(())
 }
 
-#[derive(Default, Clone)]
+#[derive(Clone)]
 struct GenericBuilder {
     types_lookup: HashMap<Ident, TypeParam>,
     built_types: HashMap<Ident, TypeParam>,
     remaining_generics: HashSet<Ident>,
-    parent_where: Option<WhereClause>,
+    parent_where: WhereClause,
 }
 
 impl GenericBuilder {
@@ -376,17 +427,8 @@ impl GenericBuilder {
         RemainingGenerics(self.clone())
     }
 
-    fn get_where_or_default(&self) -> WhereClause {
-        self.parent_where
-            .clone()
-            .unwrap_or_else(|| WhereClause {
-                where_token: Default::default(),
-                predicates: Punctuated::new(),
-            })
-    }
-
     fn remaining_where(&self) -> WhereClause {
-        let where_ = self.get_where_or_default();
+        let where_ = self.parent_where.clone();
         let mut clause = WhereClause {
             where_token: Default::default(),
             predicates: Punctuated::new(),
@@ -406,7 +448,7 @@ impl GenericBuilder {
     }
 
     fn enum_where(&self) -> WhereClause {
-        let where_ = self.get_where_or_default();
+        let where_ = self.parent_where.clone();
         let mut clause = WhereClause {
             where_token: Default::default(),
             predicates: Punctuated::new(),
@@ -452,10 +494,12 @@ impl ToTokens for RemainingGenerics {
     }
 }
 
-fn create_generic_builder(valid_generics: &Generics) -> GenericBuilder {
+fn create_generic_builder(valid_generics: &Generics, where_clause: &WhereClause) -> GenericBuilder {
     let mut builder = GenericBuilder {
-        parent_where: valid_generics.where_clause.clone(),
-        ..Default::default()
+        types_lookup: Default::default(),
+        built_types: Default::default(),
+        remaining_generics: Default::default(),
+        parent_where: where_clause.clone(),
     };
 
     for generic in valid_generics.params.iter() {
@@ -497,9 +541,7 @@ mod tests {
     #[test]
     fn test_parse() {
         let input = r#"
-        impl<T> Foo<T>
-        where
-            T: Sized + Sync
+        impl<T: Clone + Bar> Foo<T>
         {
         }
         "#;
