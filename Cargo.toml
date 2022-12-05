@@ -1,6 +1,6 @@
 [package]
 name = "puppet"
-version = "0.1.0"
+version = "0.1.1"
 description = "A simple actor framework which uses no dynamic dispatch or boxing."
 keywords = ["actor", "async", "tokio"]
 edition = "2021"
