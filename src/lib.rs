@@ -39,7 +39,9 @@ pub struct ActorMailbox<A: Actor> {
 
 impl<A: Actor> Clone for ActorMailbox<A> {
     fn clone(&self) -> Self {
-        Self { tx: self.tx.clone() }
+        Self {
+            tx: self.tx.clone(),
+        }
     }
 }
 
