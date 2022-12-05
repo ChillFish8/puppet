@@ -30,12 +30,17 @@ pub trait MessageHandler<T: Message> {
         Self: Sized;
 }
 
-#[derive(Clone)]
 /// A actor mailbox.
 ///
 /// This is a cheap to clone way of contacting the actor and sending messages.
 pub struct ActorMailbox<A: Actor> {
     tx: flume::Sender<A::Messages>,
+}
+
+impl<A: Actor> Clone for ActorMailbox<A> {
+    fn clone(&self) -> Self {
+        Self { tx: self.tx.clone() }
+    }
 }
 
 impl<A: Actor> ActorMailbox<A> {
