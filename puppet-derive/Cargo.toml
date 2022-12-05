@@ -5,6 +5,8 @@ authors = ["ChillFish8 <hburt2003@gmail.com>"]
 description = "The proc-macro for the puppet actor framework."
 edition = "2018"
 license = "MIT"
+readme = "../README.md"
+repository = "https://github.com/ChillFish8/puppet"
 
 [lib]
 proc-macro = true
