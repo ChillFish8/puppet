@@ -2,9 +2,9 @@
 name = "puppet-derive"
 version = "0.1.0"
 authors = ["ChillFish8 <hburt2003@gmail.com>"]
-description = "A `cargo generate` template for quick-starting a procedural macro crate"
-keywords = ["template", "proc_macro", "procmacro"]
+description = "The proc-macro for the puppet actor framework."
 edition = "2018"
+license = "MIT"
 
 [lib]
 proc-macro = true
