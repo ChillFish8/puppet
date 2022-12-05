@@ -1,6 +1,9 @@
 use futures::channel::oneshot;
 
 pub use puppet_derive::puppet_actor;
+
+// Not public API. Used by generated code.
+#[doc(hidden)]
 pub mod __private {
     pub use flume;
     pub use futures;
@@ -19,6 +22,8 @@ pub trait Message {
     type Output;
 }
 
+// Not public API. Used by generated code.
+#[doc(hidden)]
 pub trait MessageHandler<T: Message> {
     fn create(msg: T) -> (Self, oneshot::Receiver<T::Output>)
     where
@@ -34,6 +39,8 @@ pub struct ActorMailbox<A: Actor> {
 }
 
 impl<A: Actor> ActorMailbox<A> {
+    // Not public API. Used by generated code.
+    #[doc(hidden)]
     /// Creates a new actor mailbox.
     ///
     /// This should only really be made by the derive system.
@@ -55,7 +62,7 @@ impl<A: Actor> ActorMailbox<A> {
     /// Sends a message to the actor and waits for a response back.
     ///
     /// This a sync variant which will block the thread until the message is returned.
-    pub fn send_async<T>(&self, msg: T) -> T::Output
+    pub fn send_sync<T>(&self, msg: T) -> T::Output
     where
         T: Message,
         A::Messages: MessageHandler<T>,
