@@ -1,4 +1,5 @@
 use futures::channel::oneshot;
+use std::borrow::Cow;
 
 pub use puppet_derive::puppet_actor;
 
@@ -35,12 +36,14 @@ pub trait MessageHandler<T: Message> {
 /// This is a cheap to clone way of contacting the actor and sending messages.
 pub struct ActorMailbox<A: Actor> {
     tx: flume::Sender<A::Messages>,
+    name: Cow<'static, str>,
 }
 
 impl<A: Actor> Clone for ActorMailbox<A> {
     fn clone(&self) -> Self {
         Self {
             tx: self.tx.clone(),
+            name: self.name.clone(),
         }
     }
 }
@@ -51,8 +54,16 @@ impl<A: Actor> ActorMailbox<A> {
     /// Creates a new actor mailbox.
     ///
     /// This should only really be made by the derive system.
-    pub fn new(tx: flume::Sender<A::Messages>) -> Self {
-        Self { tx }
+    pub fn new(tx: flume::Sender<A::Messages>, name: Cow<'static, str>) -> Self {
+        Self { tx, name }
+    }
+
+    #[inline]
+    /// The name of the actor.
+    ///
+    /// This can be set by calling `actor.spawn_actor_with_name` or `actor.spawn_actor_with_name_and_size`
+    pub fn name(&self) -> &str {
+        self.name.as_ref()
     }
 
     /// Sends a message to the actor and waits for a response back.

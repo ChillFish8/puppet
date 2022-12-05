@@ -1,6 +1,6 @@
 [package]
 name = "puppet-derive"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["ChillFish8 <hburt2003@gmail.com>"]
 description = "The proc-macro for the puppet actor framework."
 edition = "2018"

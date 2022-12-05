@@ -170,7 +170,15 @@ fn generate(mut info: ItemImpl) -> TokenStream {
                 self.spawn_actor_with_queue_size(100).await
             }
 
+            pub async fn spawn_actor_with_name(mut self, name: impl AsRef<str>) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+                self.spawn_actor_with_name_and_size(name, 100).await
+            }
+
             pub async fn spawn_actor_with_queue_size(mut self, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+                self.spawn_actor_with_name_and_size(stringify!(#actor_name), 100).await
+            }
+
+            pub async fn spawn_actor_with_name_and_size(mut self, name: impl AsRef<str>, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
                 let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
 
                 puppet::__private::tokio::spawn(async move {
@@ -179,7 +187,8 @@ fn generate(mut info: ItemImpl) -> TokenStream {
                     }
                 });
 
-                puppet::ActorMailbox::new(tx)
+                let name = std::borrow::Cow::Owned(name.as_ref().to_string());
+                puppet::ActorMailbox::new(tx, name)
             }
         }
 
