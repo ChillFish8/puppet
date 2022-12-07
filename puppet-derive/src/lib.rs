@@ -190,6 +190,21 @@ fn generate(mut info: ItemImpl) -> TokenStream {
                 let name = std::borrow::Cow::Owned(name.as_ref().to_string());
                 puppet::ActorMailbox::new(tx, name)
             }
+
+            pub async fn spawn_actor_with(mut self, name: impl AsRef<str>, n: usize, executor: impl puppet::Executor) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+                use puppet::Executor;
+
+                let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
+
+                executor.spawn(async move {
+                    while let Ok(op) = rx.recv_async().await {
+                        op.__run(&mut self).await;
+                    }
+                });
+
+                let name = std::borrow::Cow::Owned(name.as_ref().to_string());
+                puppet::ActorMailbox::new(tx, name)
+            }
         }
 
         #enum_tokens

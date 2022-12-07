@@ -1,5 +1,6 @@
 use futures::channel::oneshot;
 use std::borrow::Cow;
+use std::future::Future;
 
 pub use puppet_derive::puppet_actor;
 
@@ -21,6 +22,11 @@ pub trait Actor {
 pub trait Message {
     /// The response type of the message.
     type Output;
+}
+
+/// A custom executor to spawn actors into.
+pub trait Executor {
+    fn spawn(&self, fut: impl Future<Output = ()> + Send + 'static);
 }
 
 // Not public API. Used by generated code.
