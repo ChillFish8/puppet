@@ -83,6 +83,19 @@ impl<A: Actor> ActorMailbox<A> {
         rx.await.expect("Actor response")
     }
 
+    /// Sends a message to the actor and returns a deferred response.
+    ///
+    /// This does not wait for the returned message.
+    pub async fn deferred_send<T>(&self, msg: T) -> DeferredResponse<T::Output>
+    where
+        T: Message,
+        A::Messages: MessageHandler<T>,
+    {
+        let (msg, rx) = A::Messages::create(msg);
+        self.tx.send_async(msg).await.expect("Contact actor");
+        DeferredResponse { rx }
+    }
+
     /// Sends a message to the actor and waits for a response back.
     ///
     /// This a sync variant which will block the thread until the message is returned.
@@ -94,6 +107,25 @@ impl<A: Actor> ActorMailbox<A> {
         let (msg, rx) = A::Messages::create(msg);
         self.tx.send(msg).expect("Contact actor");
         futures::executor::block_on(rx).expect("Actor response")
+    }
+}
+
+/// A deferred response from the actor.
+///
+/// This can be used to schedule a message while not waiting for the result.
+pub struct DeferredResponse<T> {
+    rx: oneshot::Receiver<T>,
+}
+
+impl<T> DeferredResponse<T> {
+    /// Attempts to get the result of the response immediately.
+    pub fn try_recv(&mut self) -> Option<T> {
+        self.rx.try_recv().expect("Get actor response")
+    }
+
+    /// Waits for the response by the actor.
+    pub async fn recv(self) -> T {
+        self.rx.await.expect("Get actor response")
     }
 }
 
