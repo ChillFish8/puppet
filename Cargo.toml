@@ -21,7 +21,8 @@ puppet-derive = { path = "puppet-derive", version = "0.2.0" }
 tokio = { version = "1", features = ["full"] }
 
 [features]
-helper-methods = ["tokio", "puppet-derive/helper-methods"]
+helper-methods = ["tokio", "puppet-derive/helper-methods", "puppet-derive/custom-executor"]
+custom-executor = ["puppet-derive/custom-executor"]
 default = ["helper-methods"]
 
 [workspace]
