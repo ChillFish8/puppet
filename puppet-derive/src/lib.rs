@@ -191,7 +191,7 @@ fn generate(mut info: ItemImpl) -> TokenStream {
 
     #[cfg(not(feature = "custom-executor"))]
     let custom_executor = quote! {};
-    
+
     #[cfg(feature = "custom-executor")]
     let custom_executor = quote! {
         pub async fn spawn_actor_with(mut self, name: impl AsRef<str>, n: usize, executor: impl puppet::Executor) -> puppet::ActorMailbox<#actor_name #actor_generics> {
@@ -209,7 +209,7 @@ fn generate(mut info: ItemImpl) -> TokenStream {
             puppet::ActorMailbox::new(tx, name)
         }
     };
-    
+
     let tokens = quote! {
         #info
 
@@ -223,9 +223,9 @@ fn generate(mut info: ItemImpl) -> TokenStream {
                     op.__run(&mut self).await;
                 }
             }
-            
+
             #custom_executor
-            
+
             #helper_methods
         }
 
