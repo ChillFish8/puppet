@@ -9,6 +9,8 @@ pub use puppet_derive::puppet_actor;
 pub mod __private {
     pub use flume;
     pub use futures;
+
+    #[cfg(feature = "helper-methods")]
     pub use tokio;
 }
 

@@ -158,6 +158,52 @@ fn generate(mut info: ItemImpl) -> TokenStream {
         #(#enum_traits)*
     };
 
+    #[cfg(not(feature = "helper-methods"))]
+    let helper_methods = quote! {};
+
+    #[cfg(feature = "helper-methods")]
+    let helper_methods = quote! {
+        pub async fn spawn_actor(mut self) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+            self.spawn_actor_with_queue_size(100).await
+        }
+
+        pub async fn spawn_actor_with_name(mut self, name: impl AsRef<str>) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+            self.spawn_actor_with_name_and_size(name, 100).await
+        }
+
+        pub async fn spawn_actor_with_queue_size(mut self, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+            self.spawn_actor_with_name_and_size(stringify!(#actor_name), 100).await
+        }
+
+        pub async fn spawn_actor_with_name_and_size(mut self, name: impl AsRef<str>, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+            let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
+
+            puppet::__private::tokio::spawn(async move {
+                while let Ok(op) = rx.recv_async().await {
+                    op.__run(&mut self).await;
+                }
+            });
+
+            let name = std::borrow::Cow::Owned(name.as_ref().to_string());
+            puppet::ActorMailbox::new(tx, name)
+        }
+
+        pub async fn spawn_actor_with(mut self, name: impl AsRef<str>, n: usize, executor: impl puppet::Executor) -> puppet::ActorMailbox<#actor_name #actor_generics> {
+            use puppet::Executor;
+
+            let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
+
+            executor.spawn(async move {
+                while let Ok(op) = rx.recv_async().await {
+                    op.__run(&mut self).await;
+                }
+            });
+
+            let name = std::borrow::Cow::Owned(name.as_ref().to_string());
+            puppet::ActorMailbox::new(tx, name)
+        }
+    };
+
     let tokens = quote! {
         #info
 
@@ -166,45 +212,13 @@ fn generate(mut info: ItemImpl) -> TokenStream {
         }
 
         impl #actor_generics #actor_name #actor_generics #actor_where {
-            pub async fn spawn_actor(mut self) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                self.spawn_actor_with_queue_size(100).await
+            pub async fn run_actor(mut self, messages: puppet::__private::flume::Receiver<#enum_name #generic_builder>) {
+                while let Ok(op) = messages.recv_async().await {
+                    op.__run(&mut self).await;
+                }
             }
 
-            pub async fn spawn_actor_with_name(mut self, name: impl AsRef<str>) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                self.spawn_actor_with_name_and_size(name, 100).await
-            }
-
-            pub async fn spawn_actor_with_queue_size(mut self, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                self.spawn_actor_with_name_and_size(stringify!(#actor_name), 100).await
-            }
-
-            pub async fn spawn_actor_with_name_and_size(mut self, name: impl AsRef<str>, n: usize) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
-
-                puppet::__private::tokio::spawn(async move {
-                    while let Ok(op) = rx.recv_async().await {
-                        op.__run(&mut self).await;
-                    }
-                });
-
-                let name = std::borrow::Cow::Owned(name.as_ref().to_string());
-                puppet::ActorMailbox::new(tx, name)
-            }
-
-            pub async fn spawn_actor_with(mut self, name: impl AsRef<str>, n: usize, executor: impl puppet::Executor) -> puppet::ActorMailbox<#actor_name #actor_generics> {
-                use puppet::Executor;
-
-                let (tx, rx) = puppet::__private::flume::bounded::<#enum_name #generic_builder>(n);
-
-                executor.spawn(async move {
-                    while let Ok(op) = rx.recv_async().await {
-                        op.__run(&mut self).await;
-                    }
-                });
-
-                let name = std::borrow::Cow::Owned(name.as_ref().to_string());
-                puppet::ActorMailbox::new(tx, name)
-            }
+            #helper_methods
         }
 
         #enum_tokens
