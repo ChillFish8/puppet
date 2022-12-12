@@ -1,0 +1,30 @@
+use puppet::{puppet_actor, ActorMailbox, Message, Reply};
+
+pub struct MyActor;
+
+#[puppet_actor]
+impl MyActor {
+    #[puppet_with_reply]
+    async fn on_say_hello(&self, msg: SayHello, reply: Reply<String>) {
+        reply.reply(format!("Hello, {}!", msg.name));
+    }
+}
+
+pub struct SayHello {
+    name: String,
+}
+impl Message for SayHello {
+    type Output = String;
+}
+
+#[tokio::test]
+async fn run_basic_actor() {
+    let actor = MyActor;
+    let mailbox: ActorMailbox<MyActor> = actor.spawn_actor().await;
+
+    let message = SayHello {
+        name: "Harri".to_string(),
+    };
+    let response = mailbox.send(message).await;
+    println!("Got message back! {}", response);
+}

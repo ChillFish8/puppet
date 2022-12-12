@@ -131,6 +131,38 @@ impl<T> DeferredResponse<T> {
     }
 }
 
+/// A reply handle.
+///
+/// Because it cannot be guaranteed that the reply will be called,
+/// we require that response `T` implements default to act as a safe reply
+/// method if `reply()` is not called directly.
+pub struct Reply<T: Default> {
+    tx: Option<oneshot::Sender<T>>,
+}
+
+impl<T: Default> From<oneshot::Sender<T>> for Reply<T> {
+    fn from(tx: oneshot::Sender<T>) -> Self {
+        Self { tx: Some(tx) }
+    }
+}
+
+impl<T: Default> Reply<T> {
+    /// Responds to the actor message.
+    pub fn reply(mut self, msg: T) {
+        if let Some(tx) = self.tx.take() {
+            let _ = tx.send(msg);
+        }
+    }
+}
+
+impl<T: Default> Drop for Reply<T> {
+    fn drop(&mut self) {
+        if let Some(tx) = self.tx.take() {
+            let _ = tx.send(T::default());
+        }
+    }
+}
+
 #[macro_export]
 /// A helper macro for deriving the [Message] trait.
 macro_rules! derive_message {

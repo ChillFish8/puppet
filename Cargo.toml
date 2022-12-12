@@ -1,6 +1,6 @@
 [package]
 name = "puppet"
-version = "0.3.0"
+version = "0.4.0"
 description = "A simple actor framework which uses no dynamic dispatch or boxing."
 keywords = ["actor", "async", "tokio"]
 edition = "2021"
@@ -15,7 +15,7 @@ futures = "0.3.25"
 flume = "0.10.14"
 
 tokio = { version = "1", optional = true, default-features = false, features = ["rt"] }
-puppet-derive = { path = "puppet-derive", version = "0.2.0" }
+puppet-derive = { path = "puppet-derive", version = "0.3.0" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }
